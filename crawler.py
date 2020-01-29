@@ -1,7 +1,9 @@
 from typing import List, Any
+import asyncio
 
 import aiohttp
 import asyncio
+import time
 
 from bs4 import BeautifulSoup
 
@@ -24,6 +26,8 @@ class LinksCollection:
         self.not_processed = []
 
     async def process(self, link):
+        self.processed.append(link)
+
         async with aiohttp.ClientSession() as session:
             # skip jpeg and video files which downloading a while
             if not link.endswith("/"):
@@ -32,25 +36,57 @@ class LinksCollection:
             self.not_processed += getAllLinks(await fetch(session, link), self.root)
             print(self.not_processed)
 
+    async def sem_process(self, sem, link):
+        async with sem:
+            await self.process(link)
+
     async def crawl(self):
         self.not_processed.append(self.root)
-        while self.not_processed:
+
+        limit = 3
+        sem = asyncio.Semaphore(limit)
+        tasks = []
+        responses = []
+        while self.not_processed or tasks:
+            if not self.not_processed:
+                if not tasks:
+                    break
+
+                if tasks:
+                    await responses
+                    tasks.clear()
+                    #await tasks[0]
+
+                continue
+
             link = self.not_processed.pop()
 
             # stay at main site
             if not link.startswith(self.root):
                 continue
 
-            print("------------------------------------------------------------------------------------------")
+
             if link not in self.processed:
-                ret = await self.process(link)
-                self.processed.append(link)
+                print("------------------------------------------------------------------------------------------")
+                task = asyncio.ensure_future(self.sem_process(sem, link))
+                tasks.append(task)
+                #ret = await self.process(link)
+                responses = asyncio.gather(*tasks)
+                print(responses)
+                #is it correct? Don't we wait here for the first request?
+                #await responses
+
+
+        print("Done")
+        print(self.processed)
+
+
 
 
 async def main():
     links = LinksCollection()
-    #links.root = 'http://mysmallwebpage.com/'
-    links.root = 'https://www.python.org/'
+    links.root = 'http://mysmallwebpage.com/'
+    #links.root = 'https://www.python.org/'
 
     print(links.not_processed)
     await links.crawl()
