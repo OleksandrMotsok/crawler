@@ -34,7 +34,6 @@ class LinksCollection:
                 return;
             print("Try to process: ", link)
             self.not_processed += getAllLinks(await fetch(session, link), self.root)
-            print(self.not_processed)
 
     async def sem_process(self, sem, link):
         async with sem:
@@ -49,13 +48,10 @@ class LinksCollection:
         responses = []
         while self.not_processed or tasks:
             if not self.not_processed:
-                if not tasks:
+                await responses
+                tasks.clear()
+                if(not self.not_processed):
                     break
-
-                if tasks:
-                    await responses
-                    tasks.clear()
-                    #await tasks[0]
 
                 continue
 
@@ -65,23 +61,13 @@ class LinksCollection:
             if not link.startswith(self.root):
                 continue
 
-
             if link not in self.processed:
-                print("------------------------------------------------------------------------------------------")
                 task = asyncio.ensure_future(self.sem_process(sem, link))
                 tasks.append(task)
-                #ret = await self.process(link)
                 responses = asyncio.gather(*tasks)
-                print(responses)
-                #is it correct? Don't we wait here for the first request?
-                #await responses
-
 
         print("Done")
         print(self.processed)
-
-
-
 
 async def main():
     links = LinksCollection()
@@ -113,7 +99,6 @@ def getAllLinks(html, parrentLink):
 
         links.append(link)
 
-    print(links)
     return links
 
 
