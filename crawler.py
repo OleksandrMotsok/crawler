@@ -1,9 +1,8 @@
+from asyncio import shield
 from typing import List, Any
-import asyncio
 
 import aiohttp
 import asyncio
-import time
 
 from bs4 import BeautifulSoup
 
@@ -33,7 +32,7 @@ class LinksCollection:
             if not link.endswith("/"):
                 return;
             print("Try to process: ", link)
-            self.not_processed += getAllLinks(await fetch(session, link), self.root)
+            self.not_processed += get_all_links(await fetch(session, link), self.root)
 
     async def sem_process(self, sem, link):
         async with sem:
@@ -46,11 +45,16 @@ class LinksCollection:
         sem = asyncio.Semaphore(limit)
         tasks = []
         responses = []
-        while self.not_processed or tasks:
+        done = []
+        #while self.not_processed or tasks:
+        while True:
             if not self.not_processed:
-                await responses
-                tasks.clear()
-                if(not self.not_processed):
+                try:
+                    done = await asyncio.wait_for(shield(responses), timeout=1.0)
+                except asyncio.TimeoutError:
+                    pass
+
+                if not self.not_processed and len(tasks) == len(done):
                     break
 
                 continue
@@ -80,7 +84,7 @@ async def main():
     print(links.processed)
 
 
-def getAllLinks(html, parrentLink):
+def get_all_links(html, parrent_link):
     soup = BeautifulSoup(html)
     links = []
     for node in soup.findAll("a"):
@@ -88,14 +92,12 @@ def getAllLinks(html, parrentLink):
         if link is None:
             continue
 
-        # link = link[:link.find("#")]
-
-        if parrentLink.endswith(link):
+        if parrent_link.endswith(link):
             continue
         else:
             print("New link", link)
         if not link.startswith("http"):
-            link = parrentLink + link
+            link = parrent_link + link
 
         links.append(link)
 
