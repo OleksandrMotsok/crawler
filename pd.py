@@ -14,11 +14,9 @@ print(df.replace(['?', 'n.a'], 'NaN'))
 # Print most expensive car’s company name and price
 index = df['price'].argmax()
 print(df.loc[[index], ['company', 'price']])
-df.reset_index()
 
 # Print All Toyota Cars details
 print(df.loc[df['company'] == 'toyota'])
-df.reset_index()
 
 # Count total cars per company
 print(df['company'].value_counts())
@@ -28,8 +26,6 @@ companies = df['company'].unique()
 for company in companies:
     l_price = ["Max for company:", company, str(df.loc[df['company'] == company]['price'].max())]
     print(" ".join(l_price))
-
-df.reset_index()
 
 # Find the average mileage of each car making company
 for company in companies:
